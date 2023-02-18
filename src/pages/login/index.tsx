@@ -1,6 +1,7 @@
 import { KeyboardEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { GetServerSideProps } from 'next';
+import { parseCookies } from 'nookies';
 import {
   Box,
   Button,
@@ -13,33 +14,43 @@ import {
   InputGroup,
   InputRightElement,
   Text,
+  useToast,
 } from '@chakra-ui/react';
 import { AiFillEye, AiFillEyeInvisible } from 'react-icons/ai';
-import { IAuthState } from 'src/utils/storage';
 import { useUserContext } from 'src/context/authProvider';
+import { AUTH_STORAGE_KEY, IAuthState } from 'src/utils/storage';
 import { apiWithAuth, routes } from 'src/services';
-import { useIsAuthenticated } from 'src/hooks';
 
 type InputValue = {
   email: string;
   password: string;
 };
 
-const Login = () => {
+const Login = ({ invalidLogin }: { invalidLogin: boolean }) => {
   const { handleLogin } = useUserContext();
   const [inputValue, setInputValue] = useState({} as InputValue);
-  const router = useRouter();
-  const isAuthenticated = useIsAuthenticated();
   const [loginError, setLoginError] = useState<string>();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
 
   const hasInputValue = inputValue.email?.length && inputValue.password?.length;
   const hasLoginError = !!loginError?.length;
 
   useEffect(() => {
-    if (isAuthenticated) router.push('/');
-  }, [isAuthenticated, router]);
+    if (!invalidLogin) return;
+    if (!toast.isActive('expiredToken') && !toast.isActive('notLogged')) {
+      toast({
+        description: 'Você precisa logar antes de acessar essa rota.',
+        status: 'error',
+        duration: 4000,
+        position: 'top-right',
+        containerStyle: { color: 'white' },
+        isClosable: true,
+        id: 'notLogged',
+      });
+    }
+  }, [invalidLogin, toast]);
 
   const submitLogin = async () => {
     try {
@@ -62,8 +73,6 @@ const Login = () => {
       submitLogin();
     }
   };
-
-  if (isAuthenticated) return null;
 
   return (
     <Flex
@@ -172,3 +181,20 @@ const Login = () => {
 };
 
 export default Login;
+
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const { [AUTH_STORAGE_KEY]: token } = parseCookies(ctx);
+
+  if (token) {
+    return {
+      redirect: {
+        destination: '/',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: ctx.query,
+  };
+};

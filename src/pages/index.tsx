@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { AxiosError } from 'axios';
 import { useRouter } from 'next/router';
+import { parseCookies } from 'nookies';
 import { Button, Center, Flex, Text, useToast } from '@chakra-ui/react';
-import PageWithAuth from 'src/components/PageWithAuth';
 import { IRowStyle, Table } from 'src/components/Table';
 import { useUserContext } from 'src/context/authProvider';
 import Header from 'src/components/header';
+import { AUTH_STORAGE_KEY } from 'src/utils/storage';
 import { routes, apiWithAuth } from 'src/services';
-import { useIsAuthenticated } from 'src/hooks';
 
 const titles = [
   { title: 'id', value: 'id' },
@@ -53,11 +54,9 @@ const ProductList = () => {
   const toast = useToast();
   const router = useRouter();
   const totalProduct = useRef<number>(0);
-  const { userAuth } = useUserContext();
+  const { isAdmin } = useUserContext();
   const isLastPage = totalProduct.current < pagination._page * 6;
   const isFirstPage = pagination._page <= 1;
-
-  const isAuthenticated = useIsAuthenticated();
 
   const rowStyles = useMemo<IRowStyle[]>(() => {
     if (!products.length) return [];
@@ -102,9 +101,8 @@ const ProductList = () => {
   }, [pagination, ordenation?.keys, ordenation?.orders, toast]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
     fetchProducts();
-  }, [pagination, ordenation, isAuthenticated, fetchProducts]);
+  }, [pagination, ordenation, fetchProducts]);
 
   const tableContent = useMemo(() => {
     if (!products.length) return [];
@@ -130,70 +128,85 @@ const ProductList = () => {
         <link rel='icon' href='/shoppingcart_80945.png' />
       </Head>
 
-      <PageWithAuth>
-        <Header
-          leftContentHeader={`Total de Produtos: [${totalProduct.current}]`}
-        />
+      <Header
+        leftContentHeader={`Total de Produtos: [${totalProduct.current}]`}
+      />
 
-        <Table
-          content={tableContent}
-          titlesAndValues={titles}
-          titles={titles.map((title) => title.title)}
-          actionAfterOrdering={(query) => setOrdenation(query)}
-          rowsStyles={rowStyles}
-          height='500px'
-        />
-        {userAuth?.usuario.isAdmin && (
-          <Flex flexDirection='row-reverse' m='20px 10px'>
-            <Button
-              colorScheme='blackAlpha'
-              onClick={() => router.push('/report-product')}
-            >
-              Acessar relatório
-            </Button>
-          </Flex>
-        )}
+      <Table
+        content={tableContent}
+        titlesAndValues={titles}
+        titles={titles.map((title) => title.title)}
+        actionAfterOrdering={(query) => setOrdenation(query)}
+        rowsStyles={rowStyles}
+        height='500px'
+      />
+      {isAdmin && (
+        <Flex flexDirection='row-reverse' m='20px 10px'>
+          <Button
+            colorScheme='blackAlpha'
+            onClick={() => router.push('/report-product')}
+          >
+            Acessar relatório
+          </Button>
+        </Flex>
+      )}
 
-        <Center
-          flexDirection={{
-            base: 'column',
-            md: 'row',
-          }}
-          justifyContent={{ base: 'space-around', lg: 'space-evenly' }}
-        >
-          <Flex mt='100px' gap={20}>
-            <Button
-              isDisabled={isFirstPage}
-              colorScheme='blackAlpha'
-              onClick={() => {
-                if (!isFirstPage) {
-                  setPagination({
-                    _page: pagination._page - 1,
-                  });
-                }
-              }}
-            >
-              {'<'}
-            </Button>
-            <Text fontWeight='700'>{`Página: [${pagination._page}]`}</Text>
-            <Button
-              colorScheme='blackAlpha'
-              isDisabled={isLastPage}
-              onClick={() => {
-                if (!isLastPage) {
-                  setPagination({
-                    _page: pagination._page + 1,
-                  });
-                }
-              }}
-            >
-              {'>'}
-            </Button>
-          </Flex>
-        </Center>
-      </PageWithAuth>
+      <Center
+        flexDirection={{
+          base: 'column',
+          md: 'row',
+        }}
+        justifyContent={{ base: 'space-around', lg: 'space-evenly' }}
+      >
+        <Flex mt='100px' gap={20}>
+          <Button
+            isDisabled={isFirstPage}
+            colorScheme='blackAlpha'
+            onClick={() => {
+              if (!isFirstPage) {
+                setPagination({
+                  _page: pagination._page - 1,
+                });
+              }
+            }}
+          >
+            {'<'}
+          </Button>
+          <Text fontWeight='700'>{`Página: [${pagination._page}]`}</Text>
+          <Button
+            colorScheme='blackAlpha'
+            isDisabled={isLastPage}
+            onClick={() => {
+              if (!isLastPage) {
+                setPagination({
+                  _page: pagination._page + 1,
+                });
+              }
+            }}
+          >
+            {'>'}
+          </Button>
+        </Flex>
+      </Center>
     </>
   );
 };
 
 export default ProductList;
+
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const { [AUTH_STORAGE_KEY]: token } = parseCookies(ctx);
+
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login?invalidLogin=true',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+};

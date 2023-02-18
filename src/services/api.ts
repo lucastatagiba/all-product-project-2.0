@@ -1,18 +1,16 @@
 import axios from 'axios';
-import { getAuthStorage } from 'src/utils/storage';
+import { getAuthCookie } from 'src/utils/storage';
 
 export const apiWithAuth = axios.create({
   baseURL: 'https://fake-api-jwt-json-server-tau.vercel.app',
 });
 
 apiWithAuth.interceptors.request.use((config) => {
-  const auth = getAuthStorage();
-  if (typeof window !== 'undefined') {
-    if (auth) {
-      const jwt = auth.token;
+  const auth = getAuthCookie();
+  if (auth) {
+    const jwt = auth.token;
 
-      config.headers!.Authorization = `Bearer ${jwt}`;
-    }
+    config.headers!.Authorization = `Bearer ${jwt}`;
   }
 
   return config;

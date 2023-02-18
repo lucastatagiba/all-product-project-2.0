@@ -1,13 +1,14 @@
 import { useEffect, useMemo } from 'react';
+import { GetServerSideProps } from 'next';
+import { parseCookies } from 'nookies';
 import Head from 'next/head';
 import { Button, Flex, Text } from '@chakra-ui/react';
-import PageWithAuth from 'src/components/PageWithAuth';
 import { IRowStyle, Table } from 'src/components/Table';
 import { useUserContext } from 'src/context/authProvider';
-import { useIsAuthenticated } from 'src/hooks';
 import { useRouter } from 'next/router';
 import { useReportContext } from 'src/context/reportProvider';
 import Header from 'src/components/header';
+import { AUTH_STORAGE_KEY } from 'src/utils/storage';
 
 const titles = [
   { title: 'Produto', value: '' },
@@ -18,18 +19,17 @@ const titles = [
 
 const Report = () => {
   const router = useRouter();
-  const { userAuth } = useUserContext();
+  const { isAdmin } = useUserContext();
 
   const { transactions, fetchTransactions } = useReportContext();
 
-  const isAuthenticated = useIsAuthenticated();
-
-  const isAdmin = userAuth?.usuario.isAdmin;
-
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAdmin) {
+      router.push('/');
+      return;
+    }
     fetchTransactions();
-  }, [fetchTransactions, isAuthenticated]);
+  }, [fetchTransactions, isAdmin, router]);
 
   const rowStyles = useMemo<IRowStyle[]>(() => {
     if (!transactions.length) return [];
@@ -55,7 +55,7 @@ const Report = () => {
     });
   }, [transactions]);
 
-  if (isAuthenticated && !isAdmin) return null;
+  if (!isAdmin) return null;
 
   return (
     <>
@@ -66,28 +66,43 @@ const Report = () => {
         <link rel='icon' href='/shoppingcart_80945.png' />
       </Head>
 
-      <PageWithAuth>
-        <Header
-          leftContentHeader={`Quantidade Total: [${transactions.reduce(
-            (acc, transaction) => transaction.quantity + acc,
-            0
-          )}]`}
-        />
+      <Header
+        leftContentHeader={`Quantidade Total: [${transactions.reduce(
+          (acc, transaction) => transaction.quantity + acc,
+          0
+        )}]`}
+      />
 
-        <Table
-          content={tableContent}
-          titlesAndValues={titles}
-          titles={titles.map((title) => title.title)}
-          rowsStyles={rowStyles}
-          height='400px'
-        />
-        <Flex justifyContent='center'>
-          <Button colorScheme='blackAlpha' onClick={() => router.push('/pdf')}>
-            Gerar PDF
-          </Button>
-        </Flex>
-      </PageWithAuth>
+      <Table
+        content={tableContent}
+        titlesAndValues={titles}
+        titles={titles.map((title) => title.title)}
+        rowsStyles={rowStyles}
+        height='400px'
+      />
+      <Flex justifyContent='center'>
+        <Button colorScheme='blackAlpha' onClick={() => router.push('/pdf')}>
+          Gerar PDF
+        </Button>
+      </Flex>
     </>
   );
 };
 export default Report;
+
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const { [AUTH_STORAGE_KEY]: token } = parseCookies(ctx);
+
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login?invalidLogin=true',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+};

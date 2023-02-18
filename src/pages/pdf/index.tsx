@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
+import { GetServerSideProps } from 'next';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
+import { parseCookies } from 'nookies';
 import { Page, Document, StyleSheet, View, Text } from '@react-pdf/renderer';
 import { PDFViewer } from '@react-pdf/renderer';
-import PageWithAuth from 'src/components/PageWithAuth';
 import { Transactions, useReportContext } from 'src/context/reportProvider';
 import { useUserContext } from 'src/context/authProvider';
-import { useIsAuthenticated } from 'src/hooks';
+import { AUTH_STORAGE_KEY } from 'src/utils/storage';
 
 const styles = StyleSheet.create({
   page: {
@@ -83,12 +86,17 @@ const PdfDocument = ({ transactions }: { transactions: Transactions[] }) => {
 
 const Pdf = () => {
   const { transactions } = useReportContext();
-  const isAuthenticated = useIsAuthenticated();
-  const { userAuth } = useUserContext();
+  const { isAdmin } = useUserContext();
+  const router = useRouter();
 
-  const isAdmin = userAuth?.usuario.isAdmin;
+  useEffect(() => {
+    if (!isAdmin) {
+      router.push('/');
+      return;
+    }
+  }, [isAdmin, router]);
 
-  if (isAuthenticated && !isAdmin) return null;
+  if (!isAdmin) return null;
 
   return (
     <>
@@ -99,13 +107,28 @@ const Pdf = () => {
         <link rel='icon' href='/shoppingcart_80945.png' />
       </Head>
 
-      <PageWithAuth>
-        <PDFViewer style={{ width: '100vw', height: '100vh' }}>
-          <PdfDocument transactions={transactions} />
-        </PDFViewer>
-      </PageWithAuth>
+      <PDFViewer style={{ width: '100vw', height: '100vh' }}>
+        <PdfDocument transactions={transactions} />
+      </PDFViewer>
     </>
   );
 };
 
 export default Pdf;
+
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const { [AUTH_STORAGE_KEY]: token } = parseCookies(ctx);
+
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login?invalidLogin=true',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+};

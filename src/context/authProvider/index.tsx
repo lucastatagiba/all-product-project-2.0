@@ -6,47 +6,50 @@ import {
   useState,
   useCallback,
 } from 'react';
-import { AxiosError } from 'axios';
 import { useRouter } from 'next/router';
 import { useToast } from '@chakra-ui/react';
 import {
+  getAuthCookie,
   IAuthState,
-  getAuthStorage,
-  removeAuthStorage,
-  setAuthStorage,
+  removeAuthCookie,
+  setAuthCookie,
 } from 'src/utils/storage';
 import { apiWithAuth } from 'src/services';
 
 interface UserAuthContext {
   handleLogin: (auth: IAuthState) => void;
   handleLogout: () => void;
-  userAuth: IAuthState | undefined;
+  userAuth: IAuthState | null;
+  isAdmin: boolean;
 }
 
 const UserContext = createContext({} as UserAuthContext);
 
 export const UserProvider = ({ children }: PropsWithChildren) => {
-  const [userAuth, setUserAuth] = useState<IAuthState | undefined>(() =>
-    getAuthStorage()
+  const [userAuth, setUserAuth] = useState<IAuthState | null>(() =>
+    getAuthCookie()
   );
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
   const handleLogin = (auth: IAuthState) => {
     setUserAuth(auth);
-    setAuthStorage(auth);
+    setAuthCookie(auth);
     router.push('/');
   };
 
   const handleLogout = useCallback(() => {
-    setUserAuth(undefined);
+    setUserAuth(null);
     router.push('/login');
-    removeAuthStorage();
+    removeAuthCookie();
   }, [router]);
 
   useEffect(() => {
     if (!userAuth) {
-      removeAuthStorage();
+      removeAuthCookie();
+    } else {
+      setIsAdmin(userAuth.usuario.isAdmin);
     }
   }, [userAuth]);
 
@@ -79,7 +82,9 @@ export const UserProvider = ({ children }: PropsWithChildren) => {
   }, [handleLogout, toast]);
 
   return (
-    <UserContext.Provider value={{ handleLogin, handleLogout, userAuth }}>
+    <UserContext.Provider
+      value={{ handleLogin, handleLogout, userAuth, isAdmin }}
+    >
       {children}
     </UserContext.Provider>
   );

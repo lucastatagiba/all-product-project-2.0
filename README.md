@@ -1,7 +1,12 @@
 
 ## Getting Started
 
-Nome do projeto: All Product Project
+Nome do projeto: All Product Project 2.0
+
+```diff 
+- A diferença entre esse projeto e o da primeira versão é que agora todas as páginas são renderizadas via Server side do nextJs, além de uma melhora na performance, ajuda nos mecanismos de buscas do google (SEO).
+
+```
 
 Descrição: Projeto consiste em 4 telas (página de login, página principal onde tem uma lista de produtos, página onde possui um relatório que é buscado da API e página de pdf onde exibe uma tabela com o relatório da tela anterior).
 Projeto foi construido usando as seguintes técnologias: ReactJs, NextJs, Typescript, Axios, Chakra-ui, React-icons e React-pdf.
